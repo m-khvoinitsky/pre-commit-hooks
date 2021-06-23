@@ -1,3 +1,5 @@
+import argparse
+import os
 from typing import Optional
 from typing import Sequence
 
@@ -5,10 +7,26 @@ from pre_commit_hooks.util import cmd_output
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
-    # `argv` is ignored, pre-commit will send us a list of files that we
-    # don't care about
+    parser = argparse.ArgumentParser()
+    parser.add_argument('filenames', nargs='*')
+    args = parser.parse_args(argv)
+
+    if not args.filenames:
+        return 0
+    if (
+        'PRE_COMMIT_FROM_REF' in os.environ and
+        'PRE_COMMIT_TO_REF' in os.environ
+    ):
+        diff_args: Sequence[str] = (
+            '--merge-base',
+            os.environ['PRE_COMMIT_FROM_REF'],
+            os.environ['PRE_COMMIT_TO_REF'],
+        )
+    else:
+        diff_args = ('--staged',)
     added_diff = cmd_output(
-        'git', 'diff', '--staged', '--diff-filter=A', '--raw',
+        'git', 'diff', '--diff-filter=A', '--raw', *diff_args, '--',
+        *args.filenames,
     )
     retv = 0
     for line in added_diff.splitlines():
